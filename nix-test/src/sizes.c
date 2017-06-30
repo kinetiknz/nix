@@ -24,6 +24,8 @@ size_of(const char* type) {
 
     // sys/socket
     SIZE_OF_S(sockaddr_storage);
+    SIZE_OF_S(msghdr);
+    SIZE_OF_S(cmsghdr);
 
     // sys/uio
     SIZE_OF_S(iovec);

@@ -36,8 +36,8 @@ pub fn assert_size_of<T>(name: &str) {
         assert!(expect > 0, "undefined type {}", name);
 
         if mem::size_of::<T>() != expect {
-            panic!("incorrectly sized type; expect={}; actual={}",
-                   expect, mem::size_of::<T>());
+            panic!("incorrectly sized type; type={} expect={}; actual={}",
+                   name, expect, mem::size_of::<T>());
         }
     }
 }
