@@ -248,7 +248,7 @@ impl<'a> Iterator for CmsgIterator<'a> {
             (libc::SOL_SOCKET, libc::SCM_RIGHTS) => unsafe {
                 Some(ControlMessage::ScmRights(
                     slice::from_raw_parts(
-                        cmsg_data.as_ptr() as *const _, 1)))
+                        cmsg_data.as_ptr() as *const _, len / mem::size_of::<RawFd>())))
             },
             (_, _) => unsafe {
                 Some(ControlMessage::Unknown(UnknownCmsg(
@@ -799,3 +799,28 @@ pub fn test_struct_sizes() {
     assert_size_of::<msghdr>("msghdr");
     assert_size_of::<cmsghdr>("cmsghdr");
 }
+
+#[test]
+pub fn test_cmsg_sizes() {
+    use nixtest::{assert_cmsg_space_of, assert_cmsg_len_of, assert_cmsg_data_offset};
+
+    let fds = [0];
+    let cmsg = ControlMessage::ScmRights(&fds);
+    assert_cmsg_space_of::<[RawFd; 1]>(cmsg.space());
+    assert_cmsg_len_of::<[RawFd; 1]>(cmsg.len());
+
+    let fds = [0, 0];
+    let cmsg = ControlMessage::ScmRights(&fds);
+    assert_cmsg_space_of::<[RawFd; 2]>(cmsg.space());
+    assert_cmsg_len_of::<[RawFd; 2]>(cmsg.len());
+
+    let fds = [0, 0, 0];
+    let cmsg = ControlMessage::ScmRights(&fds);
+    assert_cmsg_space_of::<[RawFd; 3]>(cmsg.space());
+    assert_cmsg_len_of::<[RawFd; 3]>(cmsg.len());
+
+    let sizeof_cmsghdr = mem::size_of::<cmsghdr>();
+    let off = cmsg_align(sizeof_cmsghdr);
+    assert_cmsg_data_offset(off);
+}
+

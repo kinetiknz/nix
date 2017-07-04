@@ -32,3 +32,19 @@ size_of(const char* type) {
 
     return 0;
 }
+
+size_t
+cmsg_space(size_t size) {
+  return CMSG_SPACE(size);
+}
+
+size_t
+cmsg_len(size_t size) {
+  return CMSG_LEN(size);
+}
+
+size_t
+cmsg_data_offset(void) {
+  struct cmsghdr cmsg;
+  return (size_t) CMSG_DATA(&cmsg) - (size_t) &cmsg;
+}

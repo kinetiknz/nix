@@ -11,6 +11,9 @@ mod ffi {
     extern {
         pub fn get_int_const(errno: *const c_char) -> c_int;
         pub fn size_of(ty: *const c_char) -> size_t;
+        pub fn cmsg_space(size: size_t) -> size_t;
+        pub fn cmsg_len(size: size_t) -> size_t;
+        pub fn cmsg_data_offset() -> size_t;
     }
 }
 
@@ -42,6 +45,39 @@ pub fn assert_size_of<T>(name: &str) {
     }
 }
 
+pub fn assert_cmsg_space_of<T>(size: usize) {
+    use std::mem;
+
+    unsafe {
+        let expect = ffi::cmsg_space(mem::size_of::<T>());
+        if size != expect {
+            panic!("incorrect cmsg space calculation; expect={} actual={}",
+                   expect, size);
+        }
+    }
+}
+
+pub fn assert_cmsg_len_of<T>(len: usize) {
+    use std::mem;
+
+    unsafe {
+        let expect = ffi::cmsg_len(mem::size_of::<T>());
+        if len != expect {
+            panic!("incorrect cmsg len calculation; expect={} actual={}",
+                   expect, len);
+        }
+    }
+}
+
+pub fn assert_cmsg_data_offset(off: usize) {
+    unsafe {
+        let expect = ffi::cmsg_data_offset();
+        if off != expect {
+            panic!("incorrect cmsg_data offset calculation; expect={} actual={}",
+                   expect, off);
+        }
+    }
+}
 pub use ffi::get_int_const;
 
 pub trait GetConst : PartialEq<Self> + fmt::Display {
