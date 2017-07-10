@@ -307,7 +307,7 @@ impl<'a> ControlMessage<'a> {
         match *self {
             ControlMessage::ScmRights(fds) => {
                 let cmsg = cmsghdr {
-                    cmsg_len: self.len(),
+                    cmsg_len: self.len() as _,
                     cmsg_level: libc::SOL_SOCKET,
                     cmsg_type: libc::SCM_RIGHTS,
                 };
@@ -373,9 +373,9 @@ pub fn sendmsg<'a>(fd: RawFd, iov: &[IoVec<&'a [u8]>], cmsgs: &[ControlMessage<'
         msg_name: name as *mut c_void,
         msg_namelen: namelen,
         msg_iov: iov.as_ptr() as *mut _,
-        msg_iovlen: iov.len(),
+        msg_iovlen: iov.len() as _,
         msg_control: cmsg_ptr,
-        msg_controllen: capacity,
+        msg_controllen: capacity as _,
         msg_flags: 0,
     };
     let ret = unsafe { ffi::sendmsg(fd, &mhdr, flags.bits()) };
@@ -396,9 +396,9 @@ pub fn recvmsg<'a, T>(fd: RawFd, iov: &[IoVec<&mut [u8]>], cmsg_buffer: Option<&
         msg_name: &mut address as *const _ as *mut c_void,
         msg_namelen: mem::size_of::<sockaddr_storage>() as socklen_t,
         msg_iov: iov.as_ptr() as *mut _,
-        msg_iovlen: iov.len(),
+        msg_iovlen: iov.len() as _,
         msg_control: msg_control as *mut c_void,
-        msg_controllen: msg_controllen,
+        msg_controllen: msg_controllen as _,
         msg_flags: 0,
     };
     let ret = unsafe { ffi::recvmsg(fd, &mut mhdr, flags.bits()) };
