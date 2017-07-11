@@ -242,12 +242,12 @@ impl<'a> Iterator for CmsgIterator<'a> {
         }
         self.0 = &buf[cmsg_align(cmsg_len)..];
 
-        let cmsg_data = &buf[cmsg_align(sizeof_cmsghdr)..];
+        let cmsg_data = &buf[cmsg_align(sizeof_cmsghdr)..cmsg_len];
         match (cmsg.cmsg_level, cmsg.cmsg_type) {
             (libc::SOL_SOCKET, libc::SCM_RIGHTS) => unsafe {
                 Some(ControlMessage::ScmRights(
                     slice::from_raw_parts(
-                        cmsg_data.as_ptr() as *const _, len / mem::size_of::<RawFd>())))
+                        cmsg_data.as_ptr() as *const _, cmsg_data.len() / mem::size_of::<RawFd>())))
             },
             (_, _) => unsafe {
                 Some(ControlMessage::Unknown(UnknownCmsg(
