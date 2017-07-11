@@ -16,6 +16,7 @@ pub fn main() {
     gcc::Config::new()
         .file("src/const.c")
         .file("src/sizes.c")
+        .debug(true)
         .define(os, None)
         .compile("libnixtest.a");
 }

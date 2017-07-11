@@ -247,7 +247,8 @@ impl<'a> Iterator for CmsgIterator<'a> {
             (libc::SOL_SOCKET, libc::SCM_RIGHTS) => unsafe {
                 Some(ControlMessage::ScmRights(
                     slice::from_raw_parts(
-                        cmsg_data.as_ptr() as *const _, cmsg_data.len() / mem::size_of::<RawFd>())))
+                        cmsg_data.as_ptr() as *const _,
+                        cmsg_data.len() / mem::size_of::<RawFd>())))
             },
             (_, _) => unsafe {
                 Some(ControlMessage::Unknown(UnknownCmsg(
@@ -799,7 +800,8 @@ pub fn test_struct_sizes() {
 
 #[test]
 pub fn test_cmsg_sizes() {
-    use nixtest::{assert_cmsg_space_of, assert_cmsg_len_of, assert_cmsg_data_offset};
+    use nixtest::{assert_cmsg_space_of, assert_cmsg_len_of, assert_cmsg_data_offset,
+                  cmsg_init};
 
     let fds = [0];
     let cmsg = ControlMessage::ScmRights(&fds);
@@ -820,7 +822,7 @@ pub fn test_cmsg_sizes() {
     let off = cmsg_align(sizeof_cmsghdr);
     assert_cmsg_data_offset(off);
 
-/*
+    /*
     // ([RawFd; 1], [RawFd; 1]) is equivalent to [RawFd; 2]
     // For two Cmsgs, you would need CmsgSpace<([RawFd; 1], CmsgSpace<[RawFd; 1])>
     // (note the nesting)
@@ -839,5 +841,89 @@ pub fn test_cmsg_sizes() {
     assert_cmsg_space_of::<([RawFd; 3], [RawFd; 3])>(cmsg.space() + cmsg.space());
     assert_cmsg_len_of::<([RawFd; 3], [RawFd; 3])>(cmsg.len() + cmsg.len());
     */
-}
 
+    /*
+    1 cmsg: 1 fd
+    1 cmsg: 2 fd
+    ...    10 fd
+    2 cmsg: 2 fd
+    2 cmsg: 10 fd
+    10 cmsg: 10 fd
+
+    verify that:
+    msg_control buf is same as C
+    msg_controllen is same as C
+    each cmsg is same as C (len, flags, content)
+    cmsg data offset matches C offset
+
+    C sizeof(cmsghdr) does not mean cmsg_data is at ptr + sizeof(cmsghdr)
+    due to alignment
+
+    also need to understand/check/test cmsg len/space alignment as
+    there may be padding between end of cmsg_data and start of next
+    cmsghdr
+
+    also need to test both sendmsg and recvmsg side in nix, since the
+    code paths are different for cmsg handling due to CmsgSpace stuff.
+
+    test cmsg code separate from sendmsg/recvmsg by building and
+    passing to C to verify?
+
+    nesting CmsgSpace vs taking an array?
+    doesn't work with varying <T> in CmsgSpace.
+     */
+    fn verify<T>(cmsgspace: &mut CmsgSpace<T>, fds_expect: usize, cmsgs_expect: usize) {
+        let r = RecvMsg {
+            bytes: 0,
+            cmsg_buffer: unsafe {
+                slice::from_raw_parts(cmsgspace as *mut _ as *const u8,
+                                      mem::size_of_val(cmsgspace))
+            },
+            address: None,
+            flags: MsgFlags::empty(),
+        };
+        let mut cmsgs = 0;
+        for cmsg in r.cmsgs() {
+            cmsgs += 1;
+            if let ControlMessage::ScmRights(fd) = cmsg {
+                assert_eq!(fd.len(), fds_expect);
+                for i in 0..fd.len() {
+                    assert_eq!(fd[i], 0xa0 + i as i32);
+                }
+            } else {
+                panic!("unexpected cmsg");
+            }
+        }
+        assert_eq!(cmsgs, cmsgs_expect);
+    }
+
+    let mut cmsgspace: CmsgSpace<RawFd> = CmsgSpace::new();
+    assert_cmsg_space_of::<RawFd>(mem::size_of_val(&cmsgspace));
+    cmsg_init(&mut cmsgspace as *mut _ as *mut _, 1, 1);
+    verify(&mut cmsgspace, 1, 1);
+
+    let mut cmsgspace: CmsgSpace<[RawFd; 2]> = CmsgSpace::new();
+    assert_cmsg_space_of::<[RawFd; 2]>(mem::size_of_val(&cmsgspace));
+    cmsg_init(&mut cmsgspace as *mut _ as *mut _, 2, 1);
+    verify(&mut cmsgspace, 2, 1);
+
+    let mut cmsgspace: CmsgSpace<[RawFd; 3]> = CmsgSpace::new();
+    assert_cmsg_space_of::<[RawFd; 3]>(mem::size_of_val(&cmsgspace));
+    cmsg_init(&mut cmsgspace as *mut _ as *mut _, 3, 1);
+    verify(&mut cmsgspace, 3, 1);
+
+    let mut cmsgspace: CmsgSpace<(RawFd, CmsgSpace<RawFd>)> = CmsgSpace::new();
+    assert_cmsg_space_of::<(RawFd, CmsgSpace<RawFd>)>(mem::size_of_val(&cmsgspace));
+    cmsg_init(&mut cmsgspace as *mut _ as *mut _, 1, 2);
+    verify(&mut cmsgspace, 1, 2);
+
+    let mut cmsgspace: CmsgSpace<([RawFd; 2], CmsgSpace<[RawFd; 2]>)> = CmsgSpace::new();
+    assert_cmsg_space_of::<([RawFd; 2], CmsgSpace<[RawFd; 2]>)>(mem::size_of_val(&cmsgspace));
+    cmsg_init(&mut cmsgspace as *mut _ as *mut _, 2, 2);
+    verify(&mut cmsgspace, 2, 2);
+
+    let mut cmsgspace: CmsgSpace<([RawFd; 3], CmsgSpace<[RawFd; 3]>)> = CmsgSpace::new();
+    assert_cmsg_space_of::<([RawFd; 3], CmsgSpace<[RawFd; 3]>)>(mem::size_of_val(&cmsgspace));
+    cmsg_init(&mut cmsgspace as *mut _ as *mut _, 3, 2);
+    verify(&mut cmsgspace, 3, 2);
+}

@@ -2,10 +2,10 @@ extern crate libc;
 
 use std::fmt;
 use std::ffi::CString;
-use libc::{c_int, c_char};
+use libc::{c_int, c_char, c_void};
 
 mod ffi {
-    use libc::{c_int, c_char, size_t};
+    use libc::{c_int, c_char, size_t, c_void};
 
     #[link(name = "nixtest", kind = "static")]
     extern {
@@ -14,6 +14,7 @@ mod ffi {
         pub fn cmsg_space(size: size_t) -> size_t;
         pub fn cmsg_len(size: size_t) -> size_t;
         pub fn cmsg_data_offset() -> size_t;
+        pub fn cmsg_init(cmsghdr: *mut c_void, fds: usize, cmsgs: usize);
     }
 }
 
@@ -78,6 +79,13 @@ pub fn assert_cmsg_data_offset(off: usize) {
         }
     }
 }
+
+pub fn cmsg_init(cmsghdr: *mut c_void, fds: usize, cmsgs: usize) {
+    unsafe {
+        ffi::cmsg_init(cmsghdr, fds, cmsgs);
+    }
+}
+
 pub use ffi::get_int_const;
 
 pub trait GetConst : PartialEq<Self> + fmt::Display {
