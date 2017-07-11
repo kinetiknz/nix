@@ -192,12 +192,15 @@ pub fn test_cmsg() {
                      .unwrap();
     let (r, w) = pipe().unwrap();
     let mut received_r: Option<RawFd> = None;
+    let mut received_r2: Option<RawFd> = None;
 
     {
         let iov = [IoVec::from_slice(b"hello")];
-        let fds = [r, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let fds = [r, 0, 0, 0, 0];
+        let fds2 = [0, 0, 0, 0, r];
         let cmsg = ControlMessage::ScmRights(&fds);
-        assert_eq!(sendmsg(fd1, &iov, &[cmsg], MsgFlags::empty(), None).unwrap(), 5);
+        let cmsg2 = ControlMessage::ScmRights(&fds2);
+        assert_eq!(sendmsg(fd1, &iov, &[cmsg, cmsg2], MsgFlags::empty(), None).unwrap(), 5);
         close(r).unwrap();
         close(fd1).unwrap();
     }
@@ -205,14 +208,21 @@ pub fn test_cmsg() {
     {
         let mut buf = [0u8; 5];
         let iov = [IoVec::from_mut_slice(&mut buf[..])];
-        let mut cmsgspace: CmsgSpace<[RawFd; 10]> = CmsgSpace::new();
+        let mut cmsgspace: CmsgSpace<([RawFd; 5], [RawFd; 5])> = CmsgSpace::new();
         let msg = recvmsg(fd2, &iov, Some(&mut cmsgspace), MsgFlags::empty()).unwrap();
 
+        let mut first = true;
         for cmsg in msg.cmsgs() {
             if let ControlMessage::ScmRights(fd) = cmsg {
-                assert_eq!(received_r, None);
-                assert_eq!(fd.len(), 10);
-                received_r = Some(fd[0]);
+                assert_eq!(fd.len(), 5);
+                if first {
+                    assert_eq!(received_r, None);
+                    received_r = Some(fd[0]);
+                    first = false;
+                } else {
+                    assert_eq!(received_r2, None);
+                    received_r2 = Some(fd[9]);
+                }
             } else {
                 panic!("unexpected cmsg");
             }
@@ -222,11 +232,15 @@ pub fn test_cmsg() {
     }
 
     let received_r = received_r.expect("Did not receive passed fd");
+    let received_r2 = received_r2.expect("Did not receive passed fd");
     // Ensure that the received file descriptor works
     write(w, b"world").unwrap();
+    write(w, b"hello").unwrap();
     let mut buf = [0u8; 5];
     read(received_r, &mut buf).unwrap();
     assert_eq!(&buf[..], b"world");
+    read(received_r2, &mut buf).unwrap();
+    assert_eq!(&buf[..], b"hello");
     close(received_r).unwrap();
     close(w).unwrap();
 }
