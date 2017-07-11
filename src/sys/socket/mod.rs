@@ -819,5 +819,25 @@ pub fn test_cmsg_sizes() {
     let sizeof_cmsghdr = mem::size_of::<cmsghdr>();
     let off = cmsg_align(sizeof_cmsghdr);
     assert_cmsg_data_offset(off);
+
+/*
+    // ([RawFd; 1], [RawFd; 1]) is equivalent to [RawFd; 2]
+    // For two Cmsgs, you would need CmsgSpace<([RawFd; 1], CmsgSpace<[RawFd; 1])>
+    // (note the nesting)
+    let fds = [0];
+    let cmsg = ControlMessage::ScmRights(&fds);
+    assert_cmsg_space_of::<([RawFd; 1], [RawFd; 1])>(cmsg.space() + cmsg.space());
+    assert_cmsg_len_of::<([RawFd; 1], [RawFd; 1])>(cmsg.len() + cmsg.len());
+
+    let fds = [0, 0];
+    let cmsg = ControlMessage::ScmRights(&fds);
+    assert_cmsg_space_of::<([RawFd; 2], [RawFd; 2])>(cmsg.space() + cmsg.space());
+    assert_cmsg_len_of::<([RawFd; 2], [RawFd; 2])>(cmsg.len() + cmsg.len());
+
+    let fds = [0, 0, 0];
+    let cmsg = ControlMessage::ScmRights(&fds);
+    assert_cmsg_space_of::<([RawFd; 3], [RawFd; 3])>(cmsg.space() + cmsg.space());
+    assert_cmsg_len_of::<([RawFd; 3], [RawFd; 3])>(cmsg.len() + cmsg.len());
+    */
 }
 
