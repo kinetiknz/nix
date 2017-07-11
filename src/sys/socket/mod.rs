@@ -338,17 +338,15 @@ impl<'a> ControlMessage<'a> {
 ///
 /// Allocates if cmsgs is nonempty.
 pub fn sendmsg<'a>(fd: RawFd, iov: &[IoVec<&'a [u8]>], cmsgs: &[ControlMessage<'a>], flags: MsgFlags, addr: Option<&'a SockAddr>) -> Result<usize> {
-    let mut len = 0;
     let mut capacity = 0;
     for cmsg in cmsgs {
-        len += cmsg.len();
         capacity += cmsg.space();
     }
     // Note that the resulting vector claims to have length == capacity,
     // so it's presently uninitialized.
     let mut cmsg_buffer = unsafe {
-        let mut vec = Vec::<u8>::with_capacity(len);
-        vec.set_len(len);
+        let mut vec = Vec::<u8>::with_capacity(capacity);
+        vec.set_len(capacity);
         vec
     };
     {
