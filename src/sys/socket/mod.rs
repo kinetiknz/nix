@@ -181,7 +181,7 @@ use self::ffi::{cmsghdr, msghdr, align_of_cmsg_data};
 #[repr(C)]
 pub struct CmsgSpace<T> {
     _hdr: cmsghdr,
-    #[cfg(not(target_os = "macos"))]
+    //#[cfg(not(target_os = "macos"))]
     _pad: [align_of_cmsg_data; 0],
     _data: T,
 }
