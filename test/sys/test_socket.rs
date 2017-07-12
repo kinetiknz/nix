@@ -208,7 +208,10 @@ pub fn test_cmsg() {
     {
         let mut buf = [0u8; 5];
         let iov = [IoVec::from_mut_slice(&mut buf[..])];
-        let mut cmsgspace: CmsgSpace<([RawFd; 5], [RawFd; 5])> = CmsgSpace::new();
+        #[cfg(target_os = "linux")]
+        let mut cmsgspace: CmsgSpace<[RawFd; 10]> = CmsgSpace::new();
+        #[cfg(not(target_os = "linux"))]
+        let mut cmsgspace: CmsgSpace<([RawFd; 5], CmsgSpace<[RawFd; 5]>)> = CmsgSpace::new();
         let msg = recvmsg(fd2, &iov, Some(&mut cmsgspace), MsgFlags::empty()).unwrap();
 
         // Linux coalesces two ScmRights cmsgs (above) into a single response.
