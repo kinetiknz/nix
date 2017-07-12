@@ -214,14 +214,22 @@ pub fn test_cmsg() {
         let mut first = true;
         for cmsg in msg.cmsgs() {
             if let ControlMessage::ScmRights(fd) = cmsg {
-                assert_eq!(fd.len(), 5);
-                if first {
+                if fd.len() == 5 {
+                    if first {
+                        assert_eq!(received_r, None);
+                        received_r = Some(fd[0]);
+                        first = false;
+                    } else {
+                        assert_eq!(received_r2, None);
+                        received_r2 = Some(fd[4]);
+                    }
+                } else if fd.len() == 10 {
                     assert_eq!(received_r, None);
-                    received_r = Some(fd[0]);
-                    first = false;
-                } else {
                     assert_eq!(received_r2, None);
+                    received_r = Some(fd[0]);
                     received_r2 = Some(fd[9]);
+                } else {
+                    panic!("unexpected fd.len()");
                 }
             } else {
                 panic!("unexpected cmsg");

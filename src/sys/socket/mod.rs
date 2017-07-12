@@ -314,6 +314,8 @@ impl<'a> ControlMessage<'a> {
                 };
                 copy_bytes(&cmsg, buf);
 
+                // padding between cmsghdr and start of cmsg data
+                // expect: 0 on 64-bit linux, 4 on 64-bit fbsd, 0 on macos, 0 on all 32-bit?
                 let padlen = cmsg_align(mem::size_of_val(&cmsg)) -
                     mem::size_of_val(&cmsg);
 
@@ -323,6 +325,14 @@ impl<'a> ControlMessage<'a> {
                 mem::swap(buf, &mut remainder);
 
                 copy_bytes(fds, buf);
+
+                // doesn't account for misalignment at end before next cmsg
+                // (e.g. diff between cmsg_space and cmsg_len)
+                let padlen = self.space() - self.len();
+                let mut tmpbuf = &mut [][..];
+                mem::swap(&mut tmpbuf, buf);
+                let (_padding, mut remainder) = tmpbuf.split_at_mut(padlen);
+                mem::swap(buf, &mut remainder);
             },
             ControlMessage::Unknown(UnknownCmsg(orig_cmsg, bytes)) => {
                 copy_bytes(orig_cmsg, buf);
