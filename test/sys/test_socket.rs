@@ -211,6 +211,8 @@ pub fn test_cmsg() {
         let mut cmsgspace: CmsgSpace<([RawFd; 5], [RawFd; 5])> = CmsgSpace::new();
         let msg = recvmsg(fd2, &iov, Some(&mut cmsgspace), MsgFlags::empty()).unwrap();
 
+        // Linux coalesces two ScmRights cmsgs (above) into a single response.
+        // FreeBSD wants to return two cmsgs instead, so code is not portable.
         let mut first = true;
         for cmsg in msg.cmsgs() {
             if let ControlMessage::ScmRights(fd) = cmsg {
