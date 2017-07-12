@@ -811,7 +811,7 @@ pub fn test_struct_sizes() {
 #[test]
 pub fn test_cmsg_sizes() {
     use nixtest::{assert_cmsg_space_of, assert_cmsg_len_of, assert_cmsg_data_offset,
-                  cmsg_init};
+                  cmsg_init, assert_cmsg_valid};
 
     let fds = [0];
     let cmsg = ControlMessage::ScmRights(&fds);
@@ -831,6 +831,23 @@ pub fn test_cmsg_sizes() {
     let sizeof_cmsghdr = mem::size_of::<cmsghdr>();
     let off = cmsg_align(sizeof_cmsghdr);
     assert_cmsg_data_offset(off);
+
+
+    let fds = [0];
+    let cmsgs = [ControlMessage::ScmRights(&fds), ControlMessage::ScmRights(&fds)];
+    let mut capacity = 0;
+    for cmsg in &cmsgs {
+        capacity += cmsg.space();
+    }
+    let mut vec = Vec::<u8>::with_capacity(capacity);
+    unsafe { vec.set_len(capacity) };
+    {
+        let mut ptr = &mut vec[..];
+        for cmsg in &cmsgs {
+            unsafe { cmsg.encode_into(&mut ptr) };
+        }
+    }
+    assert_cmsg_valid(vec.as_ptr() as *const _, vec.len());
 
     /*
     // ([RawFd; 1], [RawFd; 1]) is equivalent to [RawFd; 2]

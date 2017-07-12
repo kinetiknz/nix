@@ -15,6 +15,7 @@ mod ffi {
         pub fn cmsg_len(size: size_t) -> size_t;
         pub fn cmsg_data_offset() -> size_t;
         pub fn cmsg_init(cmsghdr: *mut c_void, fds: usize, cmsgs: usize);
+        pub fn cmsg_valid(cmsghdr: *const c_void, len: usize) -> bool;
     }
 }
 
@@ -83,6 +84,14 @@ pub fn assert_cmsg_data_offset(off: usize) {
 pub fn cmsg_init(cmsghdr: *mut c_void, fds: usize, cmsgs: usize) {
     unsafe {
         ffi::cmsg_init(cmsghdr, fds, cmsgs);
+    }
+}
+
+pub fn assert_cmsg_valid(cmsghdr: *const c_void, len: usize) {
+    unsafe {
+        if !ffi::cmsg_valid(cmsghdr, len) {
+            panic!("invalid cmsg");
+        }
     }
 }
 
