@@ -833,6 +833,7 @@ pub fn test_cmsg_sizes() {
     assert_cmsg_data_offset(off);
 
 
+    // Don't use zero (0) value for testing init as Rust's default memory is clear.
     let fds = [0];
     let cmsgs = [ControlMessage::ScmRights(&fds), ControlMessage::ScmRights(&fds)];
     let mut capacity = 0;

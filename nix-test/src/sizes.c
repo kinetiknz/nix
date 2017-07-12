@@ -87,7 +87,8 @@ cmsg_valid(void* cmsghdr, size_t len) {
       return false;
     }
     // How do we calculate this so it handles the post-cmsghdr padding on FreeBSD?
-    size_t entries = (cmsg->cmsg_len - sizeof(struct cmsghdr)) / sizeof(int);
+    // WRONG: size_t entries = (cmsg->cmsg_len - sizeof(struct cmsghdr)) / sizeof(int);
+    size_t entries = (((unsigned char *) cmsg + cmsg->cmsg_len) - CMSG_DATA(cmsg)) / sizeof(int);
     int* fds = (int *) CMSG_DATA(cmsg);
     for (size_t i = 0; i < entries; ++i) {
       if (fds[i] != 0) {
