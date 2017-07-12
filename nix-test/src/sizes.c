@@ -55,6 +55,7 @@ cmsg_init(void* cmsghdr, size_t fds, size_t cmsgs) {
   struct cmsghdr* cmsg = cmsghdr;
   msghdr.msg_control = cmsg;
   msghdr.msg_controllen = CMSG_SPACE(fds * sizeof(int)) * cmsgs;
+  memset(cmsghdr, 0, msghdr.msg_controllen);
   for (size_t i = 0; i < cmsgs; ++i) {
     cmsg->cmsg_len = CMSG_LEN(sizeof(int) * fds);
     cmsg->cmsg_level = SOL_SOCKET;

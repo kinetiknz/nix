@@ -17,6 +17,7 @@ pub fn main() {
         .file("src/const.c")
         .file("src/sizes.c")
         .debug(true)
+        .flag("-std=gnu99")
         .define(os, None)
         .compile("libnixtest.a");
 }
