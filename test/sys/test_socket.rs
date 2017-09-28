@@ -182,6 +182,85 @@ pub fn test_sendmsg_empty_cmsgs() {
     }
 }
 
+#[test]
+pub fn test_cmsg() {
+    use nix::sys::uio::IoVec;
+    use nix::unistd::{pipe, read, write, close};
+    use nix::sys::socket::{socketpair, sendmsg, recvmsg,
+                           AddressFamily, SockType, SockFlag,
+                           ControlMessage, CmsgSpace, MsgFlags,
+                           MSG_TRUNC, MSG_CTRUNC};
+
+    let (fd1, fd2) = socketpair(AddressFamily::Unix, SockType::Stream, None, SockFlag::empty())
+                     .unwrap();
+    let (r, w) = pipe().unwrap();
+    let mut received_r: Option<RawFd> = None;
+    let mut received_r2: Option<RawFd> = None;
+
+    {
+        let iov = [IoVec::from_slice(b"hello")];
+        let fds = [r, 0, 0, 0, 0];
+        let fds2 = [0, 0, 0, 0, r];
+        let cmsg = ControlMessage::ScmRights(&fds);
+        let cmsg2 = ControlMessage::ScmRights(&fds2);
+        assert_eq!(sendmsg(fd1, &iov, &[cmsg, cmsg2], MsgFlags::empty(), None).unwrap(), 5);
+        close(r).unwrap();
+        close(fd1).unwrap();
+    }
+
+    {
+        let mut buf = [0u8; 5];
+        let iov = [IoVec::from_mut_slice(&mut buf[..])];
+        #[cfg(target_os = "linux")]
+        let mut cmsgspace: CmsgSpace<[RawFd; 10]> = CmsgSpace::new();
+        #[cfg(not(target_os = "linux"))]
+        let mut cmsgspace: CmsgSpace<([RawFd; 5], CmsgSpace<[RawFd; 5]>)> = CmsgSpace::new();
+        let msg = recvmsg(fd2, &iov, Some(&mut cmsgspace), MsgFlags::empty()).unwrap();
+
+        // Linux coalesces two ScmRights cmsgs (above) into a single response.
+        // FreeBSD wants to return two cmsgs instead, so code is not portable.
+        let mut first = true;
+        for cmsg in msg.cmsgs() {
+            if let ControlMessage::ScmRights(fd) = cmsg {
+                if fd.len() == 5 {
+                    if first {
+                        assert_eq!(received_r, None);
+                        received_r = Some(fd[0]);
+                        first = false;
+                    } else {
+                        assert_eq!(received_r2, None);
+                        received_r2 = Some(fd[4]);
+                    }
+                } else if fd.len() == 10 {
+                    assert_eq!(received_r, None);
+                    assert_eq!(received_r2, None);
+                    received_r = Some(fd[0]);
+                    received_r2 = Some(fd[9]);
+                } else {
+                    panic!("unexpected fd.len()");
+                }
+            } else {
+                panic!("unexpected cmsg");
+            }
+        }
+        assert_eq!(msg.flags & (MSG_TRUNC | MSG_CTRUNC), MsgFlags::empty());
+        close(fd2).unwrap();
+    }
+
+    let received_r = received_r.expect("Did not receive passed fd");
+    let received_r2 = received_r2.expect("Did not receive passed fd");
+    // Ensure that the received file descriptor works
+    write(w, b"world").unwrap();
+    write(w, b"hello").unwrap();
+    let mut buf = [0u8; 5];
+    read(received_r, &mut buf).unwrap();
+    assert_eq!(&buf[..], b"world");
+    read(received_r2, &mut buf).unwrap();
+    assert_eq!(&buf[..], b"hello");
+    close(received_r).unwrap();
+    close(w).unwrap();
+}
+
 // Test creating and using named unix domain sockets
 #[test]
 pub fn test_unixdomain() {
