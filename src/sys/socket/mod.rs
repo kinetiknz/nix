@@ -434,6 +434,12 @@ impl<'a> ControlMessage<'a> {
                 mem::swap(buf, &mut remainder);
 
                 copy_bytes(fds, buf);
+
+                let padlen = self.space() - self.len();
+                let mut tmpbuf = &mut [][..];
+                mem::swap(&mut tmpbuf, buf);
+                let (_padding, mut remainder) = tmpbuf.split_at_mut(padlen);
+                mem::swap(buf, &mut remainder);
             },
             ControlMessage::ScmTimestamp(t) => {
                 let cmsg = cmsghdr {
